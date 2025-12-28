@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Car Damage Detector</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .results {
+            margin-top: 30px;
+        }
+        .damage-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .severity-1 { border-left: 5px solid #90EE90; }
+        .severity-2 { border-left: 5px solid #FFFF00; }
+        .severity-3 { border-left: 5px solid #FFA500; }
+        .severity-4 { border-left: 5px solid #FF4500; }
+        .severity-5 { border-left: 5px solid #FF0000; }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .image-preview {
+            max-width: 300px;
+            margin: 20px auto;
+        }
+        .image-preview img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚗 Car Damage Detection (OpenAI GPT-4 Vision)</h1>
+    
+    <div class="upload-section">
+        <h2>Upload Car Images</h2>
+        <input type="file" id="fileInput" multiple accept="image/*">
+        <br><br>
+        <button onclick="analyzeImages()">Analyze Damage</button>
+    </div>
+
+    <div id="loading" style="display:none; text-align:center;">
+        <h3>Analyzing images... Please wait.</h3>
+    </div>
+
+    <div id="results" class="results"></div>
+
+    <script>
+        async function analyzeImages() {
+            const fileInput = document.getElementById('fileInput');
+            const resultsDiv = document.getElementById('results');
+            const loadingDiv = document.getElementById('loading');
+            
+            if (fileInput.files.length === 0) {
+                alert('Please select at least one image');
+                return;
+            }
+
+            // Show loading
+            loadingDiv.style.display = 'block';
+            resultsDiv.innerHTML = '';
+
+            // Prepare form data
+            const formData = new FormData();
+            for (let file of fileInput.files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const response = await fetch('http://localhost:8000/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                // Hide loading
+                loadingDiv.style.display = 'none';
+
+                // Display results
+                displayResults(data);
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                resultsDiv.innerHTML = `<p style="color:red;">Error: ${error.message}</p>`;
+            }
+        }
+
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('results');
+            
+            results.forEach((result, index) => {
+                const imageSection = document.createElement('div');
+                imageSection.style.marginBottom = '40px';
+                
+                let html = `
+                    <h2>Image: ${result.image_name}</h2>
+                    <p><strong>Total Damages:</strong> ${result.total_damages}</p>
+                    <p><strong>Overall Severity:</strong> ${result.overall_severity.toUpperCase()}</p>
+                `;
+
+                if (result.damages && result.damages.length > 0) {
+                    result.damages.forEach((damage, dIdx) => {
+                        html += `
+                            <div class="damage-card severity-${damage.severity}">
+                                <h3>Damage #${dIdx + 1}: ${damage.type}</h3>
+                                <p><strong>Severity:</strong> ${damage.severity}/5</p>
+                                <p><strong>Location (bbox):</strong> [${damage.bbox.join(', ')}]</p>
+                                <p><strong>Description:</strong> ${damage.description}</p>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `<p>No damages detected.</p>`;
+                }
+
+                if (result.error) {
+                    html += `<p style="color:red;"><strong>Error:</strong> ${result.error}</p>`;
+                }
+
+                imageSection.innerHTML = html;
+                resultsDiv.appendChild(imageSection);
+            });
+        }
+    </script>
+</body>
+</html>
